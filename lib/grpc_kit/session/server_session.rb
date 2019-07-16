@@ -39,9 +39,16 @@ module GrpcKit
           invoke
 
           if @streams.empty?
-            unless @io.wait_readable
+            case @io.wait_readable_non_blocking(1)
+            when false
               shutdown
               break
+            when nil
+              if @drain_controller.start_draining?
+                @drain_controller.next(self)
+              else
+                next
+              end
             end
           end
 
@@ -58,10 +65,6 @@ module GrpcKit
           # it could be called twice
           @streams.each_value(&:close)
           return false
-        end
-
-        if @drain_controller.start_draining?
-          @drain_controller.next(self)
         end
 
         rs, ws = @io.select
