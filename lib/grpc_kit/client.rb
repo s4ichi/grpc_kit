@@ -12,7 +12,8 @@ module GrpcKit
     # @param authority [nil, String]
     # @param interceptors [Array<GrpcKit::Grpc::ClientInterceptor>] list of interceptors
     # @param timeout [nil, Integer, String]
-    def initialize(sock, authority: nil, interceptors: [], timeout: nil)
+    # @param settings [Array<Array<>>]
+    def initialize(sock, authority: nil, interceptors: [], timeout: nil, http2_settings: [], ds9_option: nil)
       @sock = sock
       @authority =
         if authority
@@ -23,6 +24,8 @@ module GrpcKit
         end
 
       @timeout = timeout && GrpcKit::GrpcTime.new(timeout)
+      @ds9_option = ds9_option
+      @settings = http2_settings
 
       build_rpcs(interceptors)
     end
@@ -71,8 +74,8 @@ module GrpcKit
     def session
       @session ||=
         begin
-          s = GrpcKit::Session::ClientSession.new(GrpcKit::Session::IO.new(@sock))
-          s.submit_settings([])
+          s = GrpcKit::Session::ClientSession.new(GrpcKit::Session::IO.new(@sock), @ds9_option)
+          s.submit_settings(@settings)
           s
         end
     end

@@ -17,13 +17,13 @@ module GrpcKit
       delegate %i[send_event recv_event] => :@io
 
       # @param io [GrpcKit::Session::IO]
-      # @param opts [Hash]
-      def initialize(io, opts = {})
-        super() # initialize DS9::Session
+      # @param option [DS9::Option]
+      def initialize(io, option = nil)
+        GrpcKit.logger.debug("option: #{option}")
+        super(option: option) # initialize DS9::Session
 
         @io = io
         @streams = {}
-        @opts = opts
         @draining = false
         @stop = false
         @no_write_data = false
@@ -69,22 +69,34 @@ module GrpcKit
           raise 'trasport is closing'
         end
 
-        if @no_write_data
-          @io.wait_readable
+        # GrpcKit.logger.debug("runOnce: @no_write_data: #{@no_write_data}")
 
-          if want_read?
-            do_read
-          end
-        else
-          rs, ws = @io.select
-          if !rs.empty? && want_read?
-            do_read
-          end
-
-          if !ws.empty? && want_write?
-            send
-          end
+        rs, ws = @io.select
+        if !rs.empty? && want_read?
+          do_read
         end
+
+        if !ws.empty? && want_write?
+          send
+        end
+
+        # if @no_write_data
+        #   # GrpcKit.logger.debug("Before wait_readable, want_read?: #{want_read?}")
+        #   @io.wait_readable
+
+        #   if want_read?
+        #     do_read
+        #   end
+        # else
+        #   rs, ws = @io.select
+        #   if !rs.empty? && want_read?
+        #     do_read
+        #   end
+
+        #   if !ws.empty? && want_write?
+        #     send
+        #   end
+        # end
       end
 
       private
@@ -97,6 +109,7 @@ module GrpcKit
       def do_read
         receive
       rescue IOError => e
+        GrpcKit.logger.debug(e.message)
         shutdown
         raise e
       rescue DS9::Exception => e
@@ -110,16 +123,17 @@ module GrpcKit
 
       # nghttp2_session_callbacks_set_on_frame_send_callback
       def on_frame_recv(frame)
-        GrpcKit.logger.debug("on_frame_recv #{frame}")
+        GrpcKit.logger.debug("start on_frame_recv #{frame}")
         case frame
         when DS9::Frames::Data
           stream = @streams[frame.stream_id]
 
           if frame.end_stream?
+            GrpcKit.logger.debug("reache end_stream?, closing stream")
             stream.close_remote
           end
 
-          unless stream.inflight
+          if frame.end_stream? && !stream.inflight
             stream.inflight = true
           end
 
@@ -127,18 +141,20 @@ module GrpcKit
           stream = @streams[frame.stream_id]
 
           if frame.end_stream?
+            GrpcKit.logger.debug("reache end_stream?, closing stream")
             stream.close_remote
           end
         when DS9::Frames::Goaway
           handle_goaway(frame)
         end
 
+        GrpcKit.logger.debug("finish on_frame_recv #{frame}")
         true
       end
 
       # nghttp2_session_callbacks_set_on_frame_send_callback
       def on_frame_send(frame)
-        GrpcKit.logger.debug("on_frame_send #{frame}")
+        GrpcKit.logger.debug("start on_frame_send #{frame}")
         case frame
         when DS9::Frames::Data, DS9::Frames::Headers
           stream = @streams[frame.stream_id]
@@ -147,7 +163,7 @@ module GrpcKit
             @no_write_data = @streams.all? { |_, v| v.close_local? }
           end
         end
-
+        GrpcKit.logger.debug("finish on_frame_send #{frame}")
         true
       end
 
@@ -162,10 +178,12 @@ module GrpcKit
 
       # nghttp2_session_callbacks_set_on_data_chunk_recv_callback
       def on_data_chunk_recv(stream_id, data, _flags)
+        GrpcKit.logger.debug("start on_data_chunk_recv stream_id=#{stream_id} data_size=#{data.bytesize} ")
         stream = @streams[stream_id]
         if stream
           stream.pending_recv_data.write(data)
         end
+        GrpcKit.logger.debug("finish on_data_chunk_recv stream_id=#{stream_id} data_size=#{data.bytesize} ")
       end
 
       # # for nghttp2_session_callbacks_set_on_frame_not_send_callback

@@ -9,6 +9,10 @@ module GrpcKit
         @mutex = Mutex.new
       end
 
+      def size
+        @buffer.bytesize
+      end
+
       # @param data [String]
       # @return [void]
       def write(data)

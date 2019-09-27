@@ -41,6 +41,10 @@ module GrpcKit
         @mutex.synchronize { @buffer.empty? }
       end
 
+      def size
+        @buffer.bytesize
+      end
+
       # @param size [Integer,nil]
       # @return [nil,DS9::ERR_DEFERRED,String]
       def read(size = nil)

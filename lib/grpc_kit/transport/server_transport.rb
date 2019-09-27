@@ -31,7 +31,8 @@ module GrpcKit
       # @param last [Boolean]
       # @return [void]
       def write_data(buf, last: false)
-        @stream.write_send_data(pack(buf), last: last)
+        packed_buf = pack(buf)
+        @stream.write_send_data(packed_buf, last: last)
         send_data
       end
 

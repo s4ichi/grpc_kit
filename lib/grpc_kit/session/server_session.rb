@@ -21,8 +21,11 @@ module GrpcKit
           # grpc_kit doesn't need to retain closed stream.
           # This would derease the memory usage.
           o.set_no_closed_streams
+          #o.set_no_auto_window_update
         end
         super(option: opt) # initialize DS9::Session
+
+        @sum_length = 0
 
         @io = io
         @streams = {}
@@ -45,6 +48,8 @@ module GrpcKit
             end
           end
 
+          sleep(1)
+
           continue = run_once
           break unless continue
         end
@@ -64,14 +69,18 @@ module GrpcKit
           @drain_controller.next(self)
         end
 
+        # GrpcKit.logger.debug("runOnce: @streams.empty? -> #{@streams.empty?}")
+
         rs, ws = @io.select
 
         if !rs.empty? && want_read?
           do_read
+          #GrpcKit.logger.debug("runOnce: do_read(size: #{size})")
         end
 
         if !ws.empty? && want_write?
           send
+          # GrpcKit.logger.debug("runOnce: send(size: #{size})")
         end
 
         true
@@ -104,6 +113,7 @@ module GrpcKit
         while (event = @control_queue.pop)
           case event[0]
           when :submit_response
+            GrpcKit.logger.debug("On submit_response")
             stream = @streams[event[1]]
             # piggybacked previous invokeing #submit_response?
             unless stream && !stream.pending_send_data.empty?
@@ -112,8 +122,10 @@ module GrpcKit
 
             submit_response(event[1], event[2])
           when :submit_headers
+            GrpcKit.logger.debug("On submit_headers")
             submit_headers(event[1], event[2])
           when :resume_data
+            GrpcKit.logger.debug("On resume_data")
             stream = @streams[event[1]]
             unless stream && stream.pending_send_data.need_resume?
               next
@@ -146,6 +158,10 @@ module GrpcKit
 
         stream = @streams[stream_id]
         data = @streams[stream_id].pending_send_data.read(length)
+
+        @sum_length += data.bytesize if data
+        GrpcKit.logger.debug("on_data_source_read: sum_length=#{@sum_length} rest_length=#{stream.pending_send_data.size}")
+
         if data.nil?
           submit_trailer(stream_id, stream.trailer_data)
           # trailer header
@@ -157,16 +173,20 @@ module GrpcKit
 
       # nghttp2_session_callbacks_set_on_data_chunk_recv_callback
       def on_data_chunk_recv(stream_id, data, _flags)
+        GrpcKit.logger.debug("start on_data_chunk_recv length=#{data.bytesize}")
+
         stream = @streams[stream_id]
         if stream
           stream.pending_recv_data.write(data)
         end
+
+        GrpcKit.logger.debug("finish on_data_chunk_recv length=#{data.bytesize}")
       end
 
       # nghttp2_session_callbacks_set_on_frame_recv_callback
       # Note: called after ServerSession#on_data_chunk_recv
       def on_frame_recv(frame)
-        GrpcKit.logger.debug("on_frame_recv #{frame}") # Too many call
+        GrpcKit.logger.debug("start on_frame_recv #{frame}") # Too many call
 
         case frame
         when DS9::Frames::Data
@@ -176,7 +196,7 @@ module GrpcKit
             stream.close_remote
           end
 
-          unless stream.inflight
+          if frame.end_stream? && !stream.inflight
             stream.inflight = true
             @dispatcher.schedule([stream, @control_queue])
           end
@@ -194,20 +214,25 @@ module GrpcKit
           # when DS9::Frames::RstStream
         end
 
+        GrpcKit.logger.debug("finish on_frame_recv #{frame}") # Too many call
         true
       end
 
       # nghttp2_session_callbacks_set_on_frame_send_callback
       def on_frame_send(frame)
-        GrpcKit.logger.debug("on_frame_send #{frame}") # Too many call
+        GrpcKit.logger.debug("start on_frame_send #{frame}") # Too many call
         case frame
         when DS9::Frames::Data, DS9::Frames::Headers
+          GrpcKit.logger.debug("in on_frame_send in data/headers: #{frame.stream_id}") # Too many call
+
           if frame.end_stream?
             stream = @streams[frame.stream_id]
+            GrpcKit.logger.debug("reache end_stream?, closing stream")
             stream.close_local
           end
         end
 
+        GrpcKit.logger.debug("finish on_frame_send #{frame}") # Too many call
         true
       end
 

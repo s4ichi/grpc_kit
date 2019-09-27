@@ -120,7 +120,7 @@ module GrpcKit
         compressed, size, buf = *data
 
         unless size == buf.size
-          raise "inconsistent data: #{buf}"
+          raise "inconsistent data: expect=#{size} actual=#{buf.bytesize}"
         end
 
         limit_size = @config.max_receive_message_size
