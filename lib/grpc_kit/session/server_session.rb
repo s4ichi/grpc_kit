@@ -38,8 +38,14 @@ module GrpcKit
         loop do
           invoke
 
+          if @drain_controller.start_draining?
+            @drain_controller.next(self)
+          end
+
           if @streams.empty?
-            unless @io.wait_readable
+            begin
+              next unless @io.wait_readable(1)
+            rescue IOError # @io has been closed
               shutdown
               break
             end
@@ -58,10 +64,6 @@ module GrpcKit
           # it could be called twice
           @streams.each_value(&:close)
           return false
-        end
-
-        if @drain_controller.start_draining?
-          @drain_controller.next(self)
         end
 
         rs, ws = @io.select

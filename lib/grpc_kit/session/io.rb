@@ -42,16 +42,20 @@ module GrpcKit
       end
 
       # Blocking until io object is readable
-      # @return [void]
-      def wait_readable
-        ::IO.select([@io], [], [])
-        true
-      rescue IOError
-        false
+      # @param timeout [Integer]
+      # @return [Boolean] true if readable, otherwise false
+      # @raise [IOError] if @io has been closed
+      def wait_readable(timeout = nil)
+        if ::IO.select([@io], [], [], timeout)
+          true
+        else
+          false
+        end
       end
 
       # Blocking until io object is readable or writable
-      # @return [void]
+      # @return [Array<Array<IO>>]
+      # @raise [IOError] if @io has been closed
       def select(timeout = 1)
         ::IO.select([@io], [@io], [], timeout)
       end

@@ -12,5 +12,12 @@ PORT = 50051
 
 sock = TCPSocket.new(HOST, PORT)
 stub = Helloworld::Greeter::Stub.new(sock)
-message = stub.say_hello(Helloworld::HelloRequest.new(name: 'ganmacs')).message
-p message
+
+logger = Logger.new(STDOUT, level: :debug)
+GrpcKit.logger = logger
+
+loop do
+  message = stub.say_hello(Helloworld::HelloRequest.new(name: 'ganmacs')).message
+  puts message
+  sleep(2)
+end
