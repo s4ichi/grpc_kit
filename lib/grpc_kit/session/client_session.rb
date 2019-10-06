@@ -26,7 +26,6 @@ module GrpcKit
         @opts = opts
         @draining = false
         @stop = false
-        @no_write_data = false
       end
 
       # @param headers [Hash<String,String>]
@@ -40,7 +39,6 @@ module GrpcKit
         stream_id = submit_request(headers, stream.pending_send_data).to_i
         stream.stream_id = stream_id
         @streams[stream_id] = stream
-        @no_write_data = false
         stream
       end
 
@@ -69,21 +67,13 @@ module GrpcKit
           raise 'trasport is closing'
         end
 
-        if @no_write_data
-          @io.wait_readable
+        rs, ws = @io.select
+        if !rs.empty? && want_read?
+          do_read
+        end
 
-          if want_read?
-            do_read
-          end
-        else
-          rs, ws = @io.select
-          if !rs.empty? && want_read?
-            do_read
-          end
-
-          if !ws.empty? && want_write?
-            send
-          end
+        if !ws.empty? && want_write?
+          send
         end
       end
 
@@ -144,7 +134,6 @@ module GrpcKit
           stream = @streams[frame.stream_id]
           if frame.end_stream?
             stream.close_local
-            @no_write_data = @streams.all? { |_, v| v.close_local? }
           end
         end
 
