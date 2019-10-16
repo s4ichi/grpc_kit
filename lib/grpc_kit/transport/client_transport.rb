@@ -43,7 +43,24 @@ module GrpcKit
       # @param last [Boolean]
       # @return [nil,String]
       def read_data(last: false)
-        unpack(recv_data(last: last))
+        data = recv_data(last: false)
+        if data.nil?
+          _ = recv_data(last: last) if last
+          return unpack(nil)
+        end
+
+        while data.bytesize < Unpacker::METADATA_SIZE
+          data += recv_data(last: false) || ''
+        end
+
+        metadata = unpack(data)
+        while metadata[1] != metadata[2].bytesize
+          data += recv_data(last: false) || ''
+          metadata = unpack(data)
+        end
+
+        _ = recv_data(last: last) if last
+        unpack(data)
       end
 
       # @param last [Boolean]

@@ -112,4 +112,20 @@ RSpec.describe 'request_response' do
       expect(resp.msg).to eq(response + request)
     end
   end
+
+  context 'when exchange large message' do
+    # NOTE: Same as default initial windows size of nghttp2
+    let(:initial_window_size) { 65535 }
+    let(:request) { 'a' * initial_window_size }
+
+    # NOTE: To avoid infinite loops
+    let(:wait_timeout) { nil }
+
+    it 'succeeds reqeust and response' do
+      expect(call).to receive(:call).once.and_call_original
+      stub = Hello::Greeter::Stub.new(ServerHelper.connect)
+      resp = stub.hello_request_response(Hello::Request.new(msg: request), timeout: wait_timeout)
+      expect(resp.msg.size).to eq((response + request).size)
+    end
+  end
 end

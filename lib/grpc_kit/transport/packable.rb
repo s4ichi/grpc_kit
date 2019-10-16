@@ -46,11 +46,10 @@ module GrpcKit
         def read
           return nil if @data.empty?
 
-          d = @data.freeze
-          metadata = d.byteslice(0, METADATA_SIZE)
+          metadata = @data.byteslice(0, METADATA_SIZE)
           c, size = metadata.unpack('CN')
           data = @data.byteslice(METADATA_SIZE, size)
-          @data = @data.byteslice(METADATA_SIZE + size, @data.bytesize)
+          # @data = @data.byteslice(METADATA_SIZE + size, @data.bytesize)
           [c != 0, size, data]
         end
       end
