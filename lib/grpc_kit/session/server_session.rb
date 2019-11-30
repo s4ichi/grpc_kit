@@ -114,11 +114,13 @@ module GrpcKit
           when :submit_headers
             submit_headers(event[1], event[2])
           when :resume_data
+            GrpcKit.logger.debug("\t\ton reusme_data")
             stream = @streams[event[1]]
             unless stream && stream.pending_send_data.need_resume?
               next
             end
 
+            GrpcKit.logger.debug("\t\treusme_data!")
             resume_data(event[1])
             stream.pending_send_data.no_resume
           end
@@ -147,6 +149,7 @@ module GrpcKit
         stream = @streams[stream_id]
         data = @streams[stream_id].pending_send_data.read(length)
         if data.nil?
+          GrpcKit.logger.debug("\t\tdata is null, then send trailer")
           submit_trailer(stream_id, stream.trailer_data)
           # trailer header
           false

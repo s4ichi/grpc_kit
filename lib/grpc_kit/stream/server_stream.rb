@@ -42,10 +42,13 @@ module GrpcKit
         end
 
         if trailer
+          GrpcKit.logger.debug("\t\tSent status")
           send_status(data: buf, metadata: trailing_metadata)
         elsif @started
+          GrpcKit.logger.debug("\t\tWrite data to buf")
           @transport.write_data(buf)
         else
+          GrpcKit.logger.debug("\t\tStart response")
           start_response(buf, metadata: initial_metadata)
         end
       end
@@ -89,11 +92,14 @@ module GrpcKit
         @transport.write_data(data) if data
 
         if @started
+          GrpcKit.logger.debug("\t\tWrite trailer")
           @transport.write_trailers(t)
         elsif data
+          GrpcKit.logger.debug("\t\tWrite trailer & start response")
           @transport.write_trailers(t)
           start_response
         else
+          GrpcKit.logger.debug("\t\tSend headers as trailer")
           send_headers(trailers: t)
         end
       end

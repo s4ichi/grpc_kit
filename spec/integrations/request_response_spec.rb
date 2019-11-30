@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'pry'
 require 'grpc_kit/server'
 require 'support/test_greeter_server'
 require 'support/server_helper'
@@ -28,7 +29,15 @@ RSpec.describe 'request_response' do
   it 'returns valid response' do
     expect(call).to receive(:call).once.and_call_original
     stub = Hello::Greeter::Stub.new(ServerHelper.connect)
-    resp = stub.hello_request_response(Hello::Request.new(msg: request))
+    resp = nil
+    begin
+      Timeout.timeout(3) do
+        resp = stub.hello_request_response(Hello::Request.new(msg: request))
+      end
+    rescue => e
+      puts e.backtrace
+      resp
+    end
     expect(resp.msg).to eq(response + request)
   end
 

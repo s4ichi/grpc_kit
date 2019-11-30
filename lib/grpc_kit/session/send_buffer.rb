@@ -38,17 +38,6 @@ module GrpcKit
           return buf
         end
 
-        if end_write?
-          # Call again because #write invokes `@buffer << data` before calling #end_write
-          if (buf = do_read(size))
-            @deferred_read = false
-            return buf
-          end
-
-          @deferred_read = false
-          return nil # EOF
-        end
-
         @deferred_read = true
         DS9::ERR_DEFERRED
       end

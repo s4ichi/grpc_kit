@@ -14,6 +14,7 @@ class ServerHelper
     sock = TCPServer.new(port)
 
     Thread.new do
+      GrpcKit.logger = Logger.new(STDOUT)
       s.run(sock.accept)
     end
     sock
