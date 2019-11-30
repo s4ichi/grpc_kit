@@ -11,11 +11,9 @@ module GrpcKit
       end
 
       # @param data [String]
-      # @param last [Boolean]
       # @return [void]
-      def write(data, last: false)
+      def write(data)
         @mutex.synchronize { @buffer << data }
-        end_write if last
       end
 
       # @return [Boolean]
@@ -25,16 +23,6 @@ module GrpcKit
 
       def no_resume
         @deferred_read = false
-      end
-
-      # @return [void]
-      def end_write
-        @end_write = true
-      end
-
-      # @return [Boolean]
-      def end_write?
-        @end_write
       end
 
       def empty?

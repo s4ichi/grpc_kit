@@ -28,17 +28,15 @@ module GrpcKit
       end
 
       # @param buf [String]
-      # @param last [Boolean]
       # @return [void]
-      def write_data(buf, last: false)
-        @stream.write_send_data(pack(buf), last: last)
+      def write_data(buf)
+        @stream.write_send_data(pack(buf))
         send_data
       end
 
-      # @param last [Boolean]
       # @return [nil,String]
-      def read_data(last: false)
-        unpack(recv_data(last: last))
+      def read_data
+        unpack(recv_data)
       end
 
       # @param trailer [Hash<String, String>]
@@ -48,11 +46,6 @@ module GrpcKit
         send_data
       end
 
-      # @return [void]
-      def end_write
-        @stream.end_write
-      end
-
       # @return [Hash<String,String>]
       def recv_headers
         @stream.headers
@@ -60,15 +53,15 @@ module GrpcKit
 
       private
 
-      def recv_data(last: false)
+      def recv_data
         loop do
-          data = @stream.read_recv_data(last: last)
+          data = @stream.read_recv_data
           return data if data
 
           if @stream.close_remote?
             # Call @stream.read_recv_data after checking @stream.close_remote?
             # because of the order of nghttp2 callbacks which calls a callback receiving data before a callback receiving END_STREAM flag
-            data = @stream.read_recv_data(last: last)
+            data = @stream.read_recv_data
             return data
           end
         end

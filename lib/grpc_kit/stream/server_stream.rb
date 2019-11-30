@@ -24,12 +24,12 @@ module GrpcKit
 
       # @param data [Object]
       # @param codec [GrpcKit::Codec]
-      # @param last [Boolean]
+      # @param trailer [Boolean]
       # @param limit_size [Integer]
       # @param initial_metadata [Hash<String,String>]
       # @param trailing_metadata [Hash<String,String>]
       # @return [void]
-      def send_msg(data, codec, last: false, limit_size: nil, initial_metadata: {}, trailing_metadata: {})
+      def send_msg(data, codec, trailer: false, limit_size: nil, initial_metadata: {}, trailing_metadata: {})
         buf =
           begin
             codec.encode(data)
@@ -41,7 +41,7 @@ module GrpcKit
           raise GrpcKit::Errors::ResourceExhausted, "Sending message is too large: send=#{req.bytesize}, max=#{limit_size}"
         end
 
-        if last
+        if trailer
           send_status(data: buf, metadata: trailing_metadata)
         elsif @started
           @transport.write_data(buf)
@@ -52,11 +52,10 @@ module GrpcKit
 
       # @raise [StopIteration] when recving message finished
       # @param codec [GrpcKit::Codec]
-      # @param last [Boolean]
       # @param limit_size [Integer]
       # @return [Object]
-      def recv_msg(codec, last: false, limit_size: nil)
-        data = @transport.read_data(last: last)
+      def recv_msg(codec, limit_size: nil)
+        data = @transport.read_data
 
         raise StopIteration if data.nil?
 
@@ -87,9 +86,8 @@ module GrpcKit
       # @return [void]
       def send_status(data: nil, status: GrpcKit::StatusCodes::OK, msg: nil, metadata: {})
         t = build_trailers(status, msg, metadata)
-        @transport.write_data(data, last: true) if data
+        @transport.write_data(data) if data
 
-        @transport.end_write
         if @started
           @transport.write_trailers(t)
         elsif data

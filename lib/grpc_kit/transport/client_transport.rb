@@ -15,41 +15,34 @@ module GrpcKit
 
       # @param data [String]
       # @param headers [Hash<String, String>]
-      # @param last [Boolean]
       # @return [void]
-      def start_request(data, headers, last: false)
+      def start_request(data, headers)
         @stream = @session.send_request(headers)
-        write_data(data, last: last)
+        write_data(data)
       end
 
       # @return [void]
       def close_and_flush
-        @stream.end_write
-        send_data
+        send_data # needed?
 
-        @session.start(@stream.stream_id)
-        @stream.end_read
-        @deferred = false
+        @session.start(@stream.stream_id) # needed?
       end
 
       # @param buf [String]
-      # @param last [Boolean]
       # @return [void]
-      def write_data(buf, last: false)
-        write(@stream.pending_send_data, pack(buf), last: last)
+      def write_data(buf)
+        write(@stream.pending_send_data, pack(buf))
         send_data
       end
 
-      # @param last [Boolean]
       # @return [nil,String]
-      def read_data(last: false)
-        unpack(recv_data(last: last))
+      def read_data
+        unpack(recv_data)
       end
 
-      # @param last [Boolean]
       # @return [nil,String]
-      def read_data_nonblock(last: false)
-        data = nonblock_recv_data(last: last)
+      def read_data_nonblock
+        data = nonblock_recv_data
         if data == :wait_readable
           unpack(nil) # nil is needed read buffered data
           :wait_readable
@@ -73,12 +66,12 @@ module GrpcKit
         end
       end
 
-      def write(stream, buf, last: false)
-        stream.write(buf, last: last)
+      def write(stream, buf)
+        stream.write(buf)
       end
 
-      def nonblock_recv_data(last: false)
-        data = @stream.read_recv_data(last: last)
+      def nonblock_recv_data
+        data = @stream.read_recv_data
         return data unless data.nil?
 
         if @stream.close_remote?
@@ -90,9 +83,9 @@ module GrpcKit
         :wait_readable
       end
 
-      def recv_data(last: false)
+      def recv_data
         loop do
-          data = @stream.read_recv_data(last: last)
+          data = @stream.read_recv_data
           return data unless data.nil?
 
           if @stream.close_remote?

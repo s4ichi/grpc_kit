@@ -30,7 +30,7 @@ module GrpcKit
 
       # @return [Object] response object
       def recv
-        @stream.recv_msg(@codec, last: true, limit_size: @config.max_receive_message_size)
+        @stream.recv_msg(@codec, limit_size: @config.max_receive_message_size)
       end
     end
   end

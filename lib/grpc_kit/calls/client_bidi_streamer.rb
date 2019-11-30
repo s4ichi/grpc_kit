@@ -52,11 +52,11 @@ module GrpcKit
         raise e
       end
 
-      def close_and_send
-        @mutex.synchronize do
-          @stream.close_and_send
-        end
-      end
+      # def close_and_send
+      #   @mutex.synchronize do
+      #     @stream.close_and_send
+      #   end
+      # end
 
       # @yieldparam response [Object] each response object of bidi streaming RPC
       def each

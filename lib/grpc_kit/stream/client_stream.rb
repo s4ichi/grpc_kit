@@ -21,9 +21,8 @@ module GrpcKit
 
       # @param data [Object]
       # @param metadata [Hash<String,String>]
-      # @param last [Boolean]
       # @return [void]
-      def send_msg(data, metadata: {}, last: false)
+      def send_msg(data, metadata: {})
         buf =
           begin
             @config.codec.encode(data)
@@ -41,9 +40,9 @@ module GrpcKit
         end
 
         if @started
-          @transport.write_data(buf, last: last)
+          @transport.write_data(buf)
         else
-          start_request(buf, metadata: metadata, last: last)
+          start_request(buf, metadata: metadata)
         end
       end
 
@@ -51,10 +50,10 @@ module GrpcKit
       # @param last [Boolean]
       # @param blocking [Boolean]
       # @return [Object]
-      def recv_msg(last: false, blocking: true)
+      def recv_msg(blocking: true)
         validate_if_request_start!
 
-        ret = do_recv(last: last, blocking: blocking)
+        ret = do_recv(last: false, blocking: blocking)
 
         if @deadline && Time.now > @deadline
           raise GrpcKit::Errors::DeadlineExceeded, @deadline
@@ -63,22 +62,9 @@ module GrpcKit
         ret
       end
 
-      def close_and_send
-        validate_if_request_start!
-
-        if @deadline && Time.now > @deadline
-          raise GrpcKit::Errors::DeadlineExceeded, @deadline
-        end
-
-        # send?
-        @transport.close_and_flush
-      end
-
       # @return [Object]
       def close_and_recv
         validate_if_request_start!
-
-        @transport.close_and_flush
 
         ret = do_recv(last: true)
 
@@ -100,9 +86,9 @@ module GrpcKit
       def do_recv(last: false, blocking: true)
         data =
           if blocking
-            @transport.read_data(last: last)
+            @transport.read_data
           else
-            v = @transport.read_data_nonblock(last: last)
+            v = @transport.read_data_nonblock
             if v == :wait_readable
               return v
             end
@@ -159,7 +145,7 @@ module GrpcKit
           end
       end
 
-      def start_request(buf = nil, last: nil, metadata: {}, timeout: @timeout, authority: @authority)
+      def start_request(buf = nil, metadata: {}, timeout: @timeout, authority: @authority)
         hdrs = {
           ':method' => 'POST',
           ':scheme' => 'http',
@@ -181,7 +167,7 @@ module GrpcKit
           end
         end
 
-        @transport.start_request(buf, hdrs.compact, last: last)
+        @transport.start_request(buf, hdrs.compact)
         @started = true
       end
     end

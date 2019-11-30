@@ -13,7 +13,7 @@ module GrpcKit
       # @param data [Object] request message
       # @return [void]
       def send_msg(data)
-        @stream.send_msg(data, last: true, metadata: outgoing_metadata)
+        @stream.send_msg(data, metadata: outgoing_metadata)
       end
 
       # @return [Object] response object
